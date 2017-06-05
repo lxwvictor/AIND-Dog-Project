@@ -1,5 +1,4 @@
 from sklearn.datasets import load_files
-from sklearn.datasets import load_files
 from keras.utils import np_utils
 import numpy as np
 from glob import glob
@@ -26,7 +25,6 @@ print('There are %d training dog images.' % len(train_files))
 print('There are %d validation dog images.' % len(valid_files))
 print('There are %d test dog images.'% len(test_files))
 
-
 import random
 random.seed(8675309)
 
@@ -37,16 +35,44 @@ random.shuffle(human_files)
 # print statistics about the dataset
 print('There are %d total human images.' % len(human_files))
 
+import cv2
+import matplotlib.pyplot as plt
+#% matplotlib inline
 
-
-import cv2# returns "True" if face is detected in image stored at img_path
+# extract pre-trained face detector
 face_cascade = cv2.CascadeClassifier('haarcascades/haarcascade_frontalface_alt.xml')
 
+# load color (BGR) image
+img = cv2.imread(human_files[3])
+# convert BGR image to grayscale
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+# find faces in image
+faces = face_cascade.detectMultiScale(gray)
+
+# print number of faces detected in the image
+print('Number of faces detected:', len(faces))
+
+# get bounding box for each detected face
+for (x, y, w, h) in faces:
+    # add bounding box to color image
+    cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+# convert BGR image to RGB for plotting
+cv_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+# display the image, along with bounding box
+plt.imshow(cv_rgb)
+plt.show()
+
+
+# returns "True" if face is detected in image stored at img_path
 def face_detector(img_path):
     img = cv2.imread(img_path)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     faces = face_cascade.detectMultiScale(gray)
     return len(faces) > 0
+
 
 human_files_short = human_files[:100]
 dog_files_short = train_files[:100]
@@ -65,14 +91,40 @@ for id in range(0,100):
 print(str(hh) + "% of the first 100 images in human_files have a detected human face")
 print(str(dh) + "% of the first 100 images in dog_files have a detected human face")
 
+## (Optional) TODO: Report the performance of another
+## face detection algorithm on the LFW dataset
+### Feel free to use as many code cells as needed.
+
+# The earlier face detector was to detect human faces. Thus
+def human_detector(img_path):
+    if face_detector(img_path):
+        return True
+    else:
+        img = cv2.imread(img_path)
+        #plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        hog = cv2.HOGDescriptor()
+        hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+        humen = hog.detectMultiScale(gray)
+        #print(humen)
+        #print(type(humen[0])==np.ndarray)
+
+hh = 0  # human detected as human
+dh = 0  # dog detected as human
+for id in range(0,100):
+    if human_detector(human_files_short[id]):
+        hh += 1
+    if human_detector(dog_files_short[id]):
+        dh += 1
+print(str(hh) + "% of the first 100 images in human_files have a detected human")
+print(str(dh) + "% of the first 100 images in dog_files have a detected human")
+
 
 
 from keras.applications.resnet50 import ResNet50
 
 # define ResNet50 model
 ResNet50_model = ResNet50(weights='imagenet')
-
-
 
 from keras.preprocessing import image
 from tqdm import tqdm
@@ -103,7 +155,6 @@ def dog_detector(img_path):
 
 ### TODO: Test the performance of the dog_detector function
 ### on the images in human_files_short and dog_files_short.
-
 hd = 0  # dog detected as dog
 dd = 0  # human detected as dog
 for id in range(0,100):
@@ -115,8 +166,6 @@ print(str(hd) + "% of the first 100 images in human_files have a detected dog")
 print(str(dd) + "% of the first 100 images in dog_files have a detected dog")
 
 
-
-
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -125,56 +174,54 @@ train_tensors = paths_to_tensor(train_files).astype('float32')/255
 valid_tensors = paths_to_tensor(valid_files).astype('float32')/255
 test_tensors = paths_to_tensor(test_files).astype('float32')/255
 
-
-
 from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D
 from keras.layers import Dropout, Flatten, Dense
 from keras.models import Sequential
-#
-# model = Sequential()
-#
-# ### TODO: Define your architecture.
-# model.add(Conv2D(filters=16, kernel_size=2, padding='same', activation='relu',
-#                 input_shape=(224,224,3)))
-# model.add(MaxPooling2D(pool_size=2))
-# model.add(Conv2D(filters=32, kernel_size=2, padding='same', activation='relu'))
-# model.add(MaxPooling2D(pool_size=2))
-# model.add(Conv2D(filters=64, kernel_size=2, padding='same', activation='relu'))
-# model.add(MaxPooling2D(pool_size=2))
-# model.add(Conv2D(filters=128, kernel_size=2, padding='same', activation='relu'))
-# model.add(MaxPooling2D(pool_size=2))
-# model.add(GlobalAveragePooling2D())
-# model.add(Dense(133, activation='softmax'))
-#
-# model.summary()
-#
-# model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
-#
-# from keras.callbacks import ModelCheckpoint
-#
-# ### TODO: specify the number of epochs that you would like to use to train the model.
-#
-# epochs = 10
-#
-# ### Do NOT modify the code below this line.
-#
-# checkpointer = ModelCheckpoint(filepath='saved_models/weights.best.from_scratch.hdf5',
-#                                verbose=1, save_best_only=True)
-#
-# model.fit(train_tensors, train_targets,
-#           validation_data=(valid_tensors, valid_targets),
-#           epochs=epochs, batch_size=20, callbacks=[checkpointer], verbose=1)
-#
-# model.load_weights('saved_models/weights.best.from_scratch.hdf5')
-#
-# # get index of predicted dog breed for each image in test set
-# dog_breed_predictions = [np.argmax(model.predict(np.expand_dims(tensor, axis=0))) for tensor in test_tensors]
-#
-# # report test accuracy
-# test_accuracy = 100*np.sum(np.array(dog_breed_predictions)==np.argmax(test_targets, axis=1))/len(dog_breed_predictions)
-# print('Test accuracy: %.4f%%' % test_accuracy)
+
+model = Sequential()
+
+### TODO: Define your architecture.
+model.add(Conv2D(filters=16, kernel_size=2, padding='same', activation='relu',
+                input_shape=(224,224,3)))
+model.add(MaxPooling2D(pool_size=2))
+model.add(Conv2D(filters=32, kernel_size=2, padding='same', activation='relu'))
+model.add(MaxPooling2D(pool_size=2))
+model.add(Conv2D(filters=64, kernel_size=2, padding='same', activation='relu'))
+model.add(MaxPooling2D(pool_size=2))
+model.add(Conv2D(filters=128, kernel_size=2, padding='same', activation='relu'))
+model.add(MaxPooling2D(pool_size=2))
+model.add(GlobalAveragePooling2D())
+model.add(Dense(133, activation='softmax'))
+
+model.summary()
+
+model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
+
+from keras.callbacks import ModelCheckpoint
+
+### TODO: specify the number of epochs that you would like to use to train the model.
+
+# 10 epochs used here
+epochs = 10
+
+### Do NOT modify the code below this line.
+
+checkpointer = ModelCheckpoint(filepath='saved_models/weights.best.from_scratch.hdf5',
+                               verbose=1, save_best_only=True)
+
+model.fit(train_tensors, train_targets,
+          validation_data=(valid_tensors, valid_targets),
+          epochs=epochs, batch_size=20, callbacks=[checkpointer], verbose=1)
 
 
+model.load_weights('saved_models/weights.best.from_scratch.hdf5')
+
+# get index of predicted dog breed for each image in test set
+dog_breed_predictions = [np.argmax(model.predict(np.expand_dims(tensor, axis=0))) for tensor in test_tensors]
+
+# report test accuracy
+test_accuracy = 100*np.sum(np.array(dog_breed_predictions)==np.argmax(test_targets, axis=1))/len(dog_breed_predictions)
+print('Test accuracy: %.4f%%' % test_accuracy)
 
 bottleneck_features = np.load('bottleneck_features/DogVGG16Data.npz')
 train_VGG16 = bottleneck_features['train']
@@ -190,7 +237,6 @@ VGG16_model.summary()
 
 VGG16_model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
 
-from keras.callbacks import ModelCheckpoint
 checkpointer = ModelCheckpoint(filepath='saved_models/weights.best.VGG16.hdf5',
                                verbose=1, save_best_only=True)
 
@@ -217,8 +263,9 @@ def VGG16_predict_breed(img_path):
     # return dog breed that is predicted by the model
     return dog_names[np.argmax(predicted_vector)]
 
-
 ### TODO: Obtain bottleneck features from another pre-trained CNN.
+
+# Below code is almost the same as the VGG16 example. And in this project I choose ResNet50.
 bottleneck_features = np.load('bottleneck_features/DogResnet50Data.npz')
 train_Resnet50 = bottleneck_features['train']
 valid_Resnet50 = bottleneck_features['valid']
@@ -226,6 +273,7 @@ test_Resnet50 = bottleneck_features['test']
 
 ### TODO: Define your architecture.
 Resnet50_model = Sequential()
+# Print the dimension of model.
 print(train_Resnet50.shape)
 Resnet50_model.add(GlobalAveragePooling2D(input_shape=train_Resnet50.shape[1:]))
 Resnet50_model.add(Dense(133, activation='softmax'))
@@ -245,8 +293,6 @@ Resnet50_model.fit(train_Resnet50, train_targets,
 
 ### TODO: Load the model weights with the best validation loss.
 Resnet50_model.load_weights('saved_models/weights.best.Resnet50.hdf5')
-
-
 
 ### TODO: Calculate classification accuracy on the test dataset.
 
@@ -273,9 +319,42 @@ def Resnet50_predict_breed(img_path):
 
 ### TODO: Write your algorithm.
 ### Feel free to use as many code cells as needed.
-for id in range(0,10):
-    if dog_detector(dog_files_short[id]):
-        print("Current dog id", id)
-        dogBreed = Resnet50_predict_breed(dog_files_short[id])
-        print("The predicted dog breed is", dogBreed)
 
+# hord means "human or dog", input is the file address, output is the result of test.
+def hord(testImage):
+    # Read the image for later use.
+    img = cv2.imread(testImage)
+    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    if dog_detector(testImage):
+        # print("Dog detected.")
+        dogBreed = Resnet50_predict_breed(testImage)
+        # print("The predicted dog breed is", dogBreed)
+        response = 'Dog detected.\nThe predicted dog breed is ' + dogBreed + '.'
+        return response
+    elif face_detector(testImage):
+        # print("Human face detected")
+        dogBreed = Resnet50_predict_breed(testImage)
+        # print("And you look like a", dogBreed)
+        response = 'Human face detected.\nAnd you look like a ' + dogBreed + '.'
+        return response
+    else:
+        # print("I don't know who/what you are.")
+        reponse = "I don't know who/what you are."
+        return reponse
+
+
+testImage = train_files[100]
+print(hord(testImage))
+
+## TODO: Execute your algorithm from Step 6 on
+## at least 6 images on your computer.
+## Feel free to use as many code cells as needed.
+mydata = load_files('myimages')
+myfiles = np.array(mydata['filenames'])
+
+fig = plt.figure(figsize=(20, 8))
+for i in range(len(myfiles)):
+    img = cv2.imread(myfiles[i])
+    ax = fig.add_subplot(2, 3, i + 1, xticks=[], yticks=[])
+    ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    ax.set_title("{}".format(hord(myfiles[i])))
